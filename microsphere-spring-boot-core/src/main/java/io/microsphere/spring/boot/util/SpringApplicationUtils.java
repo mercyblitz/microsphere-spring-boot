@@ -10,13 +10,17 @@ import org.springframework.core.env.PropertySources;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 
+import java.lang.reflect.Method;
 import java.util.Set;
 
 import static io.microsphere.collection.SetUtils.newLinkedHashSet;
 import static io.microsphere.logging.LoggerFactory.getLogger;
+import static io.microsphere.reflect.MethodUtils.findMethod;
+import static io.microsphere.reflect.MethodUtils.invokeMethod;
 import static io.microsphere.spring.boot.constants.PropertyConstants.DEFAULT_MICROSPHERE_SPRING_BOOT_LOGGING_LEVEL;
 import static io.microsphere.spring.boot.constants.PropertyConstants.MICROSPHERE_SPRING_BOOT_LOGGING_LEVEL_PROPERTY_NAME;
 import static io.microsphere.text.FormatUtils.format;
+import static io.microsphere.util.ArrayUtils.EMPTY_STRING_ARRAY;
 import static io.microsphere.util.ArrayUtils.arrayToString;
 import static io.microsphere.util.ArrayUtils.ofArray;
 import static io.microsphere.util.ShutdownHookUtils.addShutdownHookCallback;
@@ -35,6 +39,14 @@ public abstract class SpringApplicationUtils implements Utils {
     private static final Logger logger = getLogger(SpringApplicationUtils.class);
 
     private static final Set<String> defaultPropertiesResources = newLinkedHashSet();
+
+    /**
+     * The {@link Method} instance of {@link SpringApplication#getAdditionalProfiles()} that was added
+     * since Spring Boot 2.4.0, which may be {@code null} if the current Spring Boot version is lower
+     *
+     * @see SpringApplication#getAdditionalProfiles()
+     */
+    private static final Method GET_ADDITIONAL_PROFILES_METHOD = findMethod(SpringApplication.class, "getAdditionalProfiles");
 
     static {
         addShutdownHookCallback(defaultPropertiesResources::clear);
@@ -144,6 +156,7 @@ public abstract class SpringApplicationUtils implements Utils {
                 "    web type : '{}' ," +
                 "    sources : {} ," +
                 "    all sources : {} ," +
+                "    additional profiles : {} ," +
                 "    initializers : {} ," +
                 "    listeners : {}," +
                 "    args : {}," +
@@ -154,6 +167,7 @@ public abstract class SpringApplicationUtils implements Utils {
                 springApplication.getWebApplicationType(),
                 springApplication.getSources(),
                 springApplication.getAllSources(),
+                getAdditionalProfiles(springApplication),
                 springApplication.getInitializers(),
                 springApplication.getListeners(),
                 arrayToString(args),
@@ -164,11 +178,15 @@ public abstract class SpringApplicationUtils implements Utils {
 
         switch (level) {
             case "TRACE": {
-                logger.trace(messagePattern, arguments);
+                if (logger.isTraceEnabled()) {
+                    logger.trace(messagePattern, arguments);
+                }
                 break;
             }
             case "DEBUG": {
-                logger.debug(messagePattern, arguments);
+                if (logger.isDebugEnabled()) {
+                    logger.debug(messagePattern, arguments);
+                }
                 break;
             }
             case "INFO": {
@@ -184,10 +202,28 @@ public abstract class SpringApplicationUtils implements Utils {
                 break;
             }
             default: {
-                logger.trace("Logging is off");
+                if (logger.isTraceEnabled()) {
+                    logger.trace("The logger is off");
+                }
                 break;
             }
         }
+    }
+
+    /**
+     * Get the additional profiles from the given {@link SpringApplication} invoking
+     * {@link SpringApplication#getAdditionalProfiles()} reflectively, which is only available
+     * since Spring Boot 2.4.0
+     *
+     * @param springApplication {@link SpringApplication}
+     * @return additional profiles, empty array if the method is not available
+     */
+    private static String[] getAdditionalProfiles(SpringApplication springApplication) {
+        Method method = GET_ADDITIONAL_PROFILES_METHOD;
+        if (method == null) {
+            return EMPTY_STRING_ARRAY;
+        }
+        return invokeMethod(springApplication, method);
     }
 
     private SpringApplicationUtils() {
