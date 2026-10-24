@@ -11,6 +11,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.Set;
 
 import static io.microsphere.collection.SetUtils.newLinkedHashSet;
@@ -24,6 +25,7 @@ import static io.microsphere.util.ArrayUtils.EMPTY_STRING_ARRAY;
 import static io.microsphere.util.ArrayUtils.arrayToString;
 import static io.microsphere.util.ArrayUtils.ofArray;
 import static io.microsphere.util.ShutdownHookUtils.addShutdownHookCallback;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
 import static org.springframework.util.StringUtils.hasText;
@@ -178,15 +180,11 @@ public abstract class SpringApplicationUtils implements Utils {
 
         switch (level) {
             case "TRACE": {
-                if (logger.isTraceEnabled()) {
-                    logger.trace(messagePattern, arguments);
-                }
+                logger.trace(messagePattern, arguments);
                 break;
             }
             case "DEBUG": {
-                if (logger.isDebugEnabled()) {
-                    logger.debug(messagePattern, arguments);
-                }
+                logger.debug(messagePattern, arguments);
                 break;
             }
             case "INFO": {
@@ -202,9 +200,7 @@ public abstract class SpringApplicationUtils implements Utils {
                 break;
             }
             default: {
-                if (logger.isTraceEnabled()) {
-                    logger.trace("The logger is off");
-                }
+                logger.trace("The logger is off");
                 break;
             }
         }
@@ -218,10 +214,10 @@ public abstract class SpringApplicationUtils implements Utils {
      * @param springApplication {@link SpringApplication}
      * @return additional profiles, empty array if the method is not available
      */
-    private static String[] getAdditionalProfiles(SpringApplication springApplication) {
+    private static Set<String> getAdditionalProfiles(SpringApplication springApplication) {
         Method method = GET_ADDITIONAL_PROFILES_METHOD;
         if (method == null) {
-            return EMPTY_STRING_ARRAY;
+            return emptySet();
         }
         return invokeMethod(springApplication, method);
     }
